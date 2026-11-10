@@ -1,0 +1,354 @@
+# 基于大模型微调的医疗专家
+
+> 个人独立项目 · 本地可运行的医疗问诊大模型系统
+>
+> 基座 **Qwen2.5-7B-Instruct** + **PEFT/LoRA** + **BitsAndBytes 4bit 量化（QLoRA）**，
+> 使用 2 万条中文医疗思维链（CoT）数据微调，通过 **Gradio** 提供网页问诊界面。
+
+---
+
+## 1. 项目简介
+
+### 1.1 要解决的问题
+
+| 行业痛点 | 本项目的应对 |
+|---|---|
+| 医疗资源分布不均，基层误诊率高 | 本地部署医疗专家模型，低门槛辅助问诊 |
+| 通用大模型医疗回答不专业、无推理过程 | 医疗 CoT 数据微调，回答"先推理后结论" |
+| 全量微调 7B 模型需要 A100 级显卡 | QLoRA 4bit 量化，8GB 显存家用显卡即可训练 |
+
+### 1.2 技术架构
+
+```
+medical_cot_zh.jsonl (2万条中文医疗CoT数据)
+        │  data/preprocess.py（清洗 + ChatML格式化 + 划分训练/验证集）
+        ▼
+Qwen2.5-7B-Instruct (4bit NF4 量化加载)
+        │  train/train_lora.py (PEFT + LoRA, 仅训练约0.5%参数)
+        ▼
+outputs/lora_medical_qwen/final_adapter (LoRA适配器)
+        │  inference/merge_lora.py (可选：合并为完整模型)
+        ▼
+app/app.py (Gradio 医疗问诊Web界面)
+```
+
+### 1.3 效果说明
+
+微调后模型针对健康提问会按照以下结构作答（训练数据格式决定）：
+
+```
+【医学推理】
+（逐步的医学思维链分析过程……）
+【专业解答】
+（专业、有条理的最终结论……）
+```
+
+---
+
+## 2. 环境安装（Windows）
+
+### 2.1 硬件要求
+
+| 配置 | 显存 | 说明 |
+|---|---|---|
+| 推荐训练配置 | ≥ 16GB (RTX 4080/3090) | 默认参数，2万条×3轮约 4~8 小时 |
+| 基础训练配置 | ≥ 12GB (RTX 3060/4070) | batch=1，约 10~15 小时 |
+| **最低训练配置（已实测跑通）** | 8GB (RTX 4060 Laptop) | batch=1 + 累积16 + max_length≤1024 + CPU offload |
+| 仅推理/Web演示 | ≥ 6GB | 4bit 加载 LoRA 或合并模型 |
+| 无显卡 | — | 只能跑预处理，训练不可行 |
+
+磁盘需求：基座模型缓存约 15GB + LoRA 输出约 0.5GB（合并完整模型另需 15GB）。
+
+> **8GB 显卡说明**：`train/train_lora.py` 已内置两级显存优化——
+> ① embed_tokens / lm_head 自动 offload 到 CPU（共省约 2GB 显存，代价是每步多几秒 CPU 计算）；
+> ② 损失计算启用梯度检查点。实测 RTX 4060 Laptop（8GB）在
+> `batch=1 + 累积16 + max_length=768` 下训练全程稳定无 OOM。
+
+### 2.2 软件要求
+
+- Windows 10 / 11（64 位）
+- Python 3.10 或 3.11（bitsandbytes Windows 版要求 ≥ 3.10）
+- NVIDIA 驱动 + CUDA 11.8 / 12.1（只需驱动，不必装完整 CUDA Toolkit）
+- 建议使用国内 pip 镜像加速
+
+### 2.3 安装步骤（依次执行）
+
+```powershell
+# 0. 进入项目根目录
+cd d:\peixunwenjian\2026.9.12\medical_expert_llm
+
+# 1. （推荐）创建独立虚拟环境，避免污染系统 Python
+python -m venv venv
+.\venv\Scripts\activate
+
+# 2. 先按显卡 CUDA 版本安装 PyTorch（二选一，必须单独装！）
+# CUDA 12.1（驱动较新的机器）：
+pip install torch --index-url https://download.pytorch.org/whl/cu121
+# CUDA 11.8（老机器）：
+pip install torch --index-url https://download.pytorch.org/whl/cu118
+# 不确定版本：控制面板 -> NVIDIA 控制面板 -> 系统信息 查看 CUDA 版本
+
+# 3. 安装其余依赖（使用国内镜像更快）
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 4. 环境自检（确认 GPU / 依赖 / 数据就绪）
+python scripts\00_check_env.py
+```
+
+### 2.4 基座模型下载（二选一）
+
+首次训练会自动从 HuggingFace 下载 Qwen2.5-7B-Instruct（约 15GB）。国内网络建议提前用下面任一方式下载：
+
+**方式 A：HuggingFace 镜像（免安装）**
+
+```powershell
+$env:HF_ENDPOINT = "https://hf-mirror.com"   # 当前 PowerShell 会话生效
+python train\train_lora.py                    # 随后自动从镜像下载
+```
+
+**方式 B：ModelScope 魔搭社区（国内速度最快）**
+
+```powershell
+pip install modelscope -i https://pypi.tuna.tsinghua.edu.cn/simple
+modelscope download --model Qwen/Qwen2.5-7B-Instruct --local_dir models\qwen2.5-7b-instruct
+```
+
+下载完成后，把 `configs/train_config.yaml` 中的 `base_model` 改为：
+
+```yaml
+base_model: "models/qwen2.5-7b-instruct"
+```
+
+---
+
+## 3. 一键运行流程（5 步）
+
+每个步骤都有对应的 bat 脚本，**双击 `scripts\` 下对应文件即可**。
+脚本已固定使用项目 venv 的 Python，与系统 PATH 无关（找不到 venv 会给出提示）：
+
+**演示/日常使用只需记一个入口**：双击项目根目录的 **`启动问诊.bat`**，
+浏览器自动打开 http://127.0.0.1:7860（等价于 `scripts\04_webui.bat`）。
+
+| 步骤 | 双击脚本 | 等价命令 | 产物 |
+|---|---|---|---|
+| 0 环境自检 | `scripts\00_check_env.bat` | `venv\Scripts\python scripts\00_check_env.py` | 自检报告 |
+| 1 数据预处理 | `scripts\01_preprocess.bat` | `venv\Scripts\python data\preprocess.py` | `data\processed\train.json / val.json` |
+| 2 LoRA 微调训练 | `scripts\02_train.bat` | `venv\Scripts\python train\train_lora.py` | `outputs\lora_medical_qwen\final_adapter` |
+| 3 合并权重（可选） | `scripts\03_merge.bat` | `venv\Scripts\python inference\merge_lora.py` | `outputs\medical_expert_merged` |
+| 4 启动问诊网页 | `scripts\04_webui.bat` | `venv\Scripts\python app\app.py` | 浏览器自动打开 http://127.0.0.1:7860 |
+| 5 命令行测试 | `scripts\05_predict.bat` | `venv\Scripts\python inference\predict.py` | 交互式问答 |
+
+> 首次跑通建议：`python train\train_lora.py --max_train_samples 200 --max_eval_samples 20`
+> 先用 200 条样本验证全流程无报错，再进行全量训练。
+
+### 3.1 本机实测验证记录（RTX 4060 Laptop / 8GB / Win11）
+
+以下环节已在本机完成端到端验证，可放心复现：
+
+| 环节 | 命令 | 结果 |
+|---|---|---|
+| 环境安装 | venv + torch cu121 + requirements.txt | 全部依赖就绪（numpy=2.4.6、sentencepiece=0.2.0） |
+| 基座下载 | ModelScope → `models\qwen2.5-7b-instruct` | 15GB 完整（4 个 safetensors 分片） |
+| 数据预处理 | `python data\preprocess.py` | 20141 条有效 → train 19134 / val 1007 |
+| 快速训练 | `--max_train_samples 200 --max_eval_samples 20 --per_device_train_batch_size 1 --gradient_accumulation_steps 16 --max_length 768` | 12 步完成，train_loss=1.995，全程无 OOM |
+| Web 推理 | `python app\app.py` | 7860 端口正常，模型输出【医学推理】+【专业解答】CoT 结构 |
+
+### 3.2 本地全量训练参考命令（8GB 显存）
+
+> **状态提示**：全量训练已于 2026-09-10 在 ModelScope 云端 GPU 完成（1,196 步 / 约 4 小时），正式权重已回迁至 `outputs\lora_medical_qwen\final_adapter`。本节命令保留作本地复现参考，无需再执行。详见 `docs\云端训练工作日志.md`。
+
+快速训练仅 200 条样本（用于验证流程），本地全量训练建议过夜执行：
+
+```powershell
+# 方案A（推荐，约 5 小时）：子集 3000 条 x 1 epoch（配置默认值）
+python train\train_lora.py --max_train_samples 3000 ^
+    --per_device_train_batch_size 1 --gradient_accumulation_steps 16 --max_length 1024
+
+# 方案B（效果更好，周末挂机）：全量 19134 条 x 1 epoch，约 30~33 小时
+python train\train_lora.py ^
+    --per_device_train_batch_size 1 --gradient_accumulation_steps 16 --max_length 1024
+```
+
+> 训练时长估算依据：实测约 90 秒/优化步（batch=1 x 累积16，含 CPU offload 开销，电脑空闲时）。
+> 方案A：3000 ÷ 16 = 187 步 ≈ 5 小时；方案B：19134 ÷ 16 ≈ 1196 步 ≈ 30 小时。
+> 每 80 步保存一次 checkpoint（本地约 2 小时一个），中断可从 checkpoint 恢复；
+> 同时按 eval_loss 自动挑选最优 checkpoint 作为最终模型。
+> 数据量与效果权衡：200 条快速训练已让模型学会 CoT 输出格式；
+> 3000+ 条可显著增强医疗领域风格与推理深度；全量效果最佳但耗时最长。
+> 训练完成后 `outputs\lora_medical_qwen\final_adapter` 会自动更新为正式权重，
+> WebUI 无需改任何参数，重启即加载新模型。
+
+### 3.3 云端全量训练（已完成 · 2026-09-10）
+
+本地 8GB 显卡实测约 90 秒/优化步，1,196 步约需 30 小时且三次因电源管理 / 显存中断。
+全量训练已迁移 ModelScope 云端 GPU 完成，正式权重已回迁本地，本节为结果摘要。
+
+| 项目 | 结果 |
+|---|---|
+| 框架 / 精度 | ms-swift 4.5.3 + QLoRA 4bit NF4 + BF16 + Flash Attention 2 |
+| 超参 | 1 epoch / lr 2e-4 / batch 1 × accum 16 / max_length 1024 / 7 类线性层 |
+| 规模与耗时 | 19,134 条 = 1,196 步，11.9 秒/步 ≈ **3.95 小时**（本地约 30.4 小时，加速约 7.7 倍） |
+| 状态 | 全程无 OOM，正常结束 |
+| 产物 | LoRA 适配器 154.1 MB → `outputs\lora_medical_qwen\final_adapter`；Hub `Huahai123654/medical-expert-lora` |
+| 验证 | CLI 推理 / Gradio WebUI(7860) / API 端到端三重通过（严格【医学推理】→【专业解答】双段结构） |
+
+- 旧 200 条快速版权重已备份为 `final_adapter_quick200`；`train_results.json` 保留为流程验证证据，**未被覆盖**。
+- 本地 `loss mask / 动态 Padding / 早停 / CPU offload` 属快速验证链路；云端全量使用 ms-swift 内置流程，汇报时不要混讲。
+- 完整排障记录、回迁可核验证据与后续建议见 `docs\云端训练工作日志.md`；复现流程见 `modelscope_migration\云端操作指引.md`。
+
+---
+
+## 4. 各模块详细说明
+
+### 4.1 数据预处理（data/preprocess.py）
+
+- 读取 `medical_cot_zh.jsonl`（20171 条，字段：`Question` / `Complex_CoT` / `Response`）
+- 清洗：过滤缺失字段样本、超长样本（> 1600 字符）；实测过滤 30 条，保留 20141 条
+- 转换为 Qwen ChatML 多轮对话格式：
+
+```json
+{"messages": [
+  {"role": "system",    "content": "你是一位经验丰富的医疗AI助手…"},
+  {"role": "user",      "content": "患者提问……"},
+  {"role": "assistant", "content": "【医学推理】…思维链…\n\n【专业解答】…最终回答…"}
+]}
+```
+
+- 随机打乱后 95% / 5% 划分：训练集 19134 条，验证集 1007 条（seed=42 可复现）
+- 常用参数：`--val_ratio 0.05`、`--max_samples 500`（调试）
+
+### 4.2 LoRA 微调训练（train/train_lora.py）
+
+关键设计（写项目文档可直接引用）：
+
+1. **QLoRA 4bit 量化**：基座以 NF4 量化加载（约 5.6GB 显存），配双重量化；
+2. **LoRA 参数高效微调**：`r=16, alpha=32, dropout=0.05`，挂载 Qwen 全部 7 类线性投影层（q/k/v/o/gate/up/down），可训练参数 40.37M（约 0.5%），基座权重冻结不变；
+3. **Loss 屏蔽**：只对 assistant 回答部分计算交叉熵（user/system 的 label 置 -100），模型专注学"怎么答"而不是"怎么问"；
+4. **动态 Padding**：batch 内按最长序列补齐（对齐到 8 的倍数），减少无效计算；
+5. **梯度检查点 + 8bit 分页优化器**：进一步压缩显存峰值；
+6. **早停机制**：验证集 loss 连续 3 次不下降自动停止，防过拟合。
+
+默认超参（`configs/train_config.yaml`）：
+
+| 超参 | 默认值 | 说明 |
+|---|---|---|
+| num_train_epochs | 1 | 轮数；时间充裕可加到 2~3 |
+| learning_rate | 2e-4 | LoRA 典型学习率 |
+| per_device_train_batch_size | 2 | 8GB 显卡改 1 |
+| gradient_accumulation_steps | 8 | 等效 batch=16 |
+| max_length | 1536 | 数据集实测最长 ~1400 token，全覆盖 |
+| lr_scheduler_type | cosine | 余弦退火 |
+| warmup_ratio | 0.03 | 预热比例 |
+
+命令行参数可覆盖配置文件，例如：
+
+```powershell
+python train\train_lora.py --num_train_epochs 1 --per_device_train_batch_size 1
+```
+
+训练产物：
+- `outputs/lora_medical_qwen/final_adapter/`：LoRA 适配器权重（adapter_model.safetensors，约 100MB）
+- `outputs/lora_medical_qwen/checkpoint-*/`：过程检查点（保留最优 3 个）
+- `outputs/lora_medical_qwen/train_results.json`：训练指标汇总（写论文用）
+
+### 4.3 推理（inference/predict.py）
+
+两种加载方式自动选择（优先合并模型）：
+
+```powershell
+# 方式A：基座 + LoRA 适配器（默认，4bit 推理约 6GB 显存）
+python inference\predict.py --lora_path outputs\lora_medical_qwen\final_adapter
+
+# 方式B：合并后的完整模型
+python inference\predict.py --merged_model outputs\medical_expert_merged
+
+# 单条测试
+python inference\predict.py --question "晚上失眠多梦怎么办？"
+```
+
+生成参数采用 Qwen 官方推荐：`temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05`。
+
+### 4.4 合并权重（inference/merge_lora.py，可选）
+
+在 CPU 上以 fp16 加载基座 → 挂载 LoRA → `merge_and_unload()` 代数合并 → 保存完整模型（约 15GB）。合并后可脱离基座独立部署，也方便传给 vLLM 等推理框架。**磁盘紧张可跳过，WebUI 支持直接加载 LoRA。**
+
+### 4.5 Web 问诊界面（app/app.py）
+
+- 医疗问答：多轮对话上下文（自动携带最近 6 轮）、流式逐字输出；
+- 内置 4 个示例问题一键填入；
+- 可调 temperature / max_new_tokens；支持"重新回答"、"清空对话"；
+- 页脚保留一行 AI 生成内容提示小字；
+- 启动：`python app\app.py --port 7860`（自动打开浏览器）。
+
+---
+
+## 5. Windows 常见问题（FAQ）
+
+| 现象 | 原因与解决 |
+|---|---|
+| `torch.cuda.is_available()` 返回 False | 装成了 CPU 版 torch。卸载后从官方源重装：`pip uninstall torch` → `pip install torch --index-url https://download.pytorch.org/whl/cu121`（国内可加 `-i https://mirror.sjtu.edu.cn/pytorch-wheels/cu121` 镜像） |
+| `module 'numpy._globals' has no attribute '_signature_descriptor'` | numpy 多版本残留导致 ABI 冲突。`pip uninstall numpy -y`（反复执行到无残留）→ `pip install numpy==2.4.6` |
+| 导入 sentencepiece 时 Python 直接崩溃退出 | Windows 下 0.2.2 的 C 扩展有 bug。锁定 `sentencepiece==0.2.0` |
+| 下载模型报 SSL 证书吊销检查失败 | 部分网络环境无法访问 CRL。curl 加 `--ssl-no-revoke`，或改用 ModelScope |
+| Gradio 启动报 `TypeError: argument of type 'bool' is not iterable` | 旧版 API 序列化 bug。升级 `pip install "gradio>=5.0"` |
+| `No module named 'bitsandbytes'` / 安装失败 | Windows 需 bitsandbytes ≥ 0.43.0 且 Python ≥ 3.10；升级 pip 后重装：`python -m pip install -U pip` |
+| 训练时报 CUDA out of memory | ① `configs/train_config.yaml` 中 `per_device_train_batch_size` 改 1；② `gradient_accumulation_steps` 改 16；③ `max_length` 改 1024 |
+| 下载模型超时 / 连不上 huggingface.co | 设置镜像：`$env:HF_ENDPOINT="https://hf-mirror.com"`；或用 ModelScope 下载到本地（见 2.4） |
+| 控制台中文乱码 | bat 脚本已内置 `chcp 65001`；手动跑命令时先执行 `chcp 65001` |
+| DataLoader 卡死 / 卡在训练开始 | 已内置 `dataloader_num_workers=0` 规避 Windows 多进程问题；若仍出现，重启 Python 后重试 |
+| 训练很慢 | 正常现象：8GB 显卡上每步约 90 秒（CPU offload 的代价）；19134 条 × 3 epoch 约 90 小时不现实，请按 3.2 节方案选择子集训练 |
+| 训练日志出现 `expandable_segments not supported on this platform` 警告 | Windows 平台限制，无害，可忽略 |
+| `torch.cuda.is_bf16_supported()` 为 False | GTX 16 系等老显卡不支持 bf16，脚本已自动降级 fp16，无需处理 |
+| Gradio 页面打不开 | 检查 7860 端口占用：`python app\app.py --port 7861` 换端口；浏览器手动访问 http://127.0.0.1:7860 |
+| 合并模型时磁盘不足 | 合并产物约 15GB，可跳过合并，WebUI 直接加载 LoRA 适配器 |
+| 保存 checkpoint 报路径过长 | Windows 260 字符限制；将项目移到浅目录（如 `d:\medical_expert_llm`），或启用系统长路径支持 |
+
+---
+
+## 6. 项目结构总览
+
+```
+medical_expert_llm/
+├── README.md                        # 本文档
+├── 启动问诊.bat                      # 演示一键入口（双击启动网页，等价 04_webui）
+├── requirements.txt                 # Python 依赖清单（torch 需单独安装）
+├── .gitignore                       # git 忽略规则（模型/输出不入库）
+├── configs/
+│   └── train_config.yaml            # 训练总配置（模型/LoRA/超参/保存策略）
+├── data/
+│   ├── medical_cot_zh.jsonl         # 原始数据集（2万条中文医疗CoT，49.9MB）
+│   ├── preprocess.py                # 数据预处理脚本（已验证：20141条有效）
+│   └── processed/                   # 预处理产物（train/val.json，运行后生成）
+├── train/
+│   └── train_lora.py                # LoRA 4bit 微调训练脚本（核心）
+├── inference/
+│   ├── predict.py                   # 命令行推理测试（LoRA 或合并模型）
+│   └── merge_lora.py                # LoRA 权重合并脚本
+├── app/
+│   └── app.py                       # Gradio 医疗问诊 Web 界面
+├── scripts/                         # Windows 一键启动脚本
+│   ├── 00_check_env.bat / .py       # 环境自检
+│   ├── 01_preprocess.bat            # 数据预处理
+│   ├── 02_train.bat                 # 微调训练
+│   ├── 03_merge.bat                 # 权重合并（可选）
+│   ├── 04_webui.bat                 # 启动问诊网页
+│   ├── 05_predict.bat               # 命令行测试
+│   └── test_web_api.py              # Web 服务端到端 API 测试（无浏览器自动验证）
+├── outputs/                         # 训练输出目录（运行后生成，不入库）
+└── docs/
+    ├── 基于大模型微调的医疗专家.pptx  # 参考PPT
+    └── 项目说明.md                   # 项目配套说明（汇报素材）
+```
+
+---
+
+## 7. 快速验证清单（项目演示流程）
+
+1. `python scripts\00_check_env.py` —— 展示环境就绪
+2. `python data\preprocess.py` —— 展示数据统计与样例（CoT 格式讲解）
+3. （已提前训练好）打开 `outputs\lora_medical_qwen\train_results.json` 展示训练指标
+4. `python app\app.py` —— 浏览器演示：点击示例问题 → 展示【医学推理】+【专业解答】流式输出
+5. （可选，无需浏览器）另开一个终端：`python scripts\test_web_api.py`，自动提问并打印模型回答，验证服务端到端可用
+6. 对比演示（加分项）：临时用 `python app\app.py --lora_path ""` 加载未微调基座，同一问题回答明显缺乏医疗推理结构
+
+更多汇报素材见 `docs\项目说明.md`。

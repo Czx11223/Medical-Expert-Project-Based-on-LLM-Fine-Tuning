@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>医疗智能问诊助手 · UI 设计方案 v1.0</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563EB'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+/* ==========================================================================
+   设计 Token —— 极简蓝调 / 4px 间距基频 / WCAG AA
+   ========================================================================== */
+:root{
+  --blue-50:#EFF6FF; --blue-100:#DBEAFE; --blue-200:#BFDBFE; --blue-300:#93C5FD;
+  --blue-400:#60A5FA; --blue-500:#3B82F6; --blue-600:#2563EB; --blue-700:#1D4ED8;
+  --blue-800:#1E40AF; --blue-900:#1E3A8A;
+  --slate-50:#F8FAFC; --slate-100:#F1F5F9; --slate-200:#E2E8F0; --slate-300:#CBD5E1;
+  --slate-400:#94A3B8; --slate-500:#64748B; --slate-600:#475569; --slate-700:#334155;
+  --slate-800:#1E293B; --slate-900:#0F172A;
+  --success:#0E9F6E; --warning:#B45309; --error:#DC2626; --info:#2563EB;
+  --bg:#F6F8FB; --surface:#FFFFFF; --surface-soft:#F8FAFC;
+  --text-1:#0F172A; --text-2:#334155; --text-3:#475569; --text-4:#64748B;
+  --border:#E2E8F0; --border-strong:#CBD5E1;
+  --font-sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --font-mono:"JetBrains Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+  --fs-xs:12px; --fs-sm:14px; --fs-base:16px; --fs-lg:18px; --fs-xl:20px;
+  --fs-2xl:24px; --fs-3xl:30px; --fs-4xl:36px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px; --sp-12:48px; --sp-16:64px;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:999px;
+  --shadow-sm:0 1px 2px rgba(15,23,42,.05);
+  --shadow-md:0 4px 12px -2px rgba(15,23,42,.08);
+  --shadow-lg:0 12px 32px -8px rgba(30,64,175,.14);
+  --t-fast:150ms ease; --t-normal:240ms ease;
+  --focus-ring:0 0 0 3px rgba(37,99,235,.28);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--font-sans); font-size:var(--fs-base); line-height:1.75;
+  color:var(--text-1); background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0; line-height:1.35; font-weight:700; letter-spacing:-.01em;}
+p{margin:0;}
+button{font-family:inherit;}
+a{color:var(--blue-600);}
+:focus-visible{outline:2px solid var(--blue-600); outline-offset:2px; border-radius:4px;}
+::selection{background:var(--blue-200);}
+[hidden]{display:none !important;}
+
+/* ==========================================================================
+   文档顶栏：方案标题 + 视图切换
+   ========================================================================== */
+.doc-bar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; gap:var(--sp-6); flex-wrap:wrap;
+  padding:14px var(--sp-8); background:rgba(255,255,255,.9);
+  backdrop-filter:blur(10px); border-bottom:1px solid var(--border);
+}
+.doc-brand{display:flex; align-items:center; gap:var(--sp-3); min-width:0;}
+.doc-logo{
+  width:36px; height:36px; border-radius:10px; flex:none;
+  background:linear-gradient(135deg,var(--blue-600),var(--blue-800));
+  display:grid; place-items:center; color:#fff; box-shadow:var(--shadow-md);
+}
+.doc-title{font-size:var(--fs-lg); font-weight:700;}
+.doc-sub{font-size:var(--fs-xs); color:var(--text-4); line-height:1.4;}
+.doc-tabs{
+  margin-left:auto; display:flex; gap:var(--sp-1);
+  background:var(--slate-100); padding:4px; border-radius:var(--r-full);
+}
+.doc-tab{
+  border:0; background:transparent; color:var(--text-3);
+  font-size:var(--fs-sm); font-weight:500; padding:8px 18px; min-height:40px;
+  border-radius:var(--r-full); cursor:pointer; transition:all var(--t-fast);
+}
+.doc-tab:hover{color:var(--text-1);}
+.doc-tab[aria-selected="true"]{background:#fff; color:var(--blue-700); box-shadow:var(--shadow-sm); font-weight:600;}
+.doc-version{font-size:var(--fs-xs); color:var(--text-4); font-family:var(--font-mono);}
+
+/* ==========================================================================
+   界面原型：三栏问诊工作台
+   ========================================================================== */
+.stage{padding:var(--sp-6) var(--sp-8) var(--sp-8);}
+.stage-note{
+  display:flex; gap:var(--sp-2); align-items:center; flex-wrap:wrap;
+  font-size:var(--fs-sm); color:var(--text-4); margin:0 auto var(--sp-4); max-width:1440px;
+}
+.stage-note .dot{width:6px;height:6px;border-radius:50%;background:var(--blue-500);flex:none;}
+.app-shell{
+  max-width:1440px; margin:0 auto; height:min(820px,calc(100vh - 170px)); min-height:640px;
+  display:grid; grid-template-columns:264px minmax(0,1fr) 296px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:20px; overflow:hidden; box-shadow:var(--shadow-lg);
+}
+/* 左栏：会话导航 */
+.rail{
+  background:var(--surface-soft); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; min-height:0;
+}
+.rail-head{display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-5,20px) var(--sp-4) var(--sp-4);}
+.rail-logo{width:34px;height:34px;border-radius:10px;background:var(--blue-600);color:#fff;display:grid;place-items:center;flex:none;}
+.rail-name{font-weight:700;font-size:var(--fs-sm);line-height:1.4;}
+.rail-tag{font-size:var(--fs-xs);color:var(--text-4);}
+.rail-new{margin:0 var(--sp-4) var(--sp-4);}
+.rail-section{
+  padding:0 var(--sp-4) var(--sp-2); font-size:var(--fs-xs); color:var(--text-4);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.rail-list{flex:1; overflow-y:auto; padding:0 var(--sp-2) var(--sp-4); min-height:0;}
+.session{
+  display:flex; gap:var(--sp-2); align-items:flex-start; width:100%; text-align:left;
+  padding:10px var(--sp-3); border:0; background:transparent; border-radius:var(--r-md);
+  cursor:pointer; color:var(--text-2); transition:background var(--t-fast); min-height:44px;
+}
+.session:hover{background:var(--slate-100);}
+.session[aria-current="true"]{background:var(--blue-50); color:var(--blue-800);}
+.session-title{font-size:var(--fs-sm); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.session-time{font-size:var(--fs-xs); color:var(--text-4);}
+.rail-foot{border-top:1px solid var(--border); padding:var(--sp-3) var(--sp-4); font-size:var(--fs-xs); color:var(--text-4);}
+
+/* 中栏：对话 */
+.chat-pane{display:flex; flex-direction:column; min-width:0; min-height:0; background:#fff;}
+.chat-header{
+  display:flex; align-items:center; gap:var(--sp-3);
+  padding:14px var(--sp-6); border-bottom:1px solid var(--border); background:#fff;
+}
+.chat-title{font-size:var(--fs-base); font-weight:600;}
+.chat-sub{font-size:var(--fs-xs); color:var(--text-4);}
+.badge{
+  display:inline-flex; align-items:center; gap:6px; padding:3px 10px;
+  font-size:var(--fs-xs); border-radius:var(--r-full); font-weight:500; white-space:nowrap;
+}
+.badge-success{background:#E8F7F0; color:#0B7A55;}
+.badge-blue{background:var(--blue-50); color:var(--blue-700);}
+.badge-gray{background:var(--slate-100); color:var(--text-3);}
+.badge .pulse{width:6px;height:6px;border-radius:50%;background:var(--success);}
+.icon-btn{
+  width:40px; height:40px; flex:none; display:grid; place-items:center;
+  border:1px solid transparent; background:transparent; color:var(--text-3);
+  border-radius:10px; cursor:pointer; transition:all var(--t-fast);
+}
+.icon-btn:hover{background:var(--slate-100); color:var(--text-1);}
+.chat-scroll{flex:1; overflow-y:auto; padding:var(--sp-8) var(--sp-6) var(--sp-6); scroll-behavior:smooth;}
+.chat-inner{max-width:800px; margin:0 auto; display:flex; flex-direction:column; gap:var(--sp-6);}
+
+/* 欢迎空态 */
+.welcome{text-align:center; padding:var(--sp-8) 0 var(--sp-4);}
+.welcome-icon{
+  width:64px;height:64px;margin:0 auto var(--sp-4);border-radius:20px;
+  background:linear-gradient(135deg,var(--blue-50),var(--blue-100));
+  display:grid;place-items:center;color:var(--blue-600);border:1px solid var(--blue-100);
+}
+.welcome h2{font-size:var(--fs-2xl);}
+.welcome p{color:var(--text-4); font-size:var(--fs-sm); margin-top:var(--sp-2);}
+.example-grid{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); margin-top:var(--sp-8); text-align:left;}
+.example-card{
+  display:flex; gap:var(--sp-3); align-items:flex-start; padding:var(--sp-4);
+  background:#fff; border:1px solid var(--border); border-radius:var(--r-lg);
+  cursor:pointer; text-align:left; transition:all var(--t-fast); min-height:44px;
+}
+.example-card:hover{border-color:var(--blue-300); box-shadow:var(--shadow-md); transform:translateY(-2px);}
+.example-card .ex-ico{color:var(--blue-600); flex:none; margin-top:3px;}
+.example-card .ex-title{font-size:var(--fs-sm); font-weight:500; color:var(--text-2); line-height:1.6;}
+.example-card .ex-hint{font-size:var(--fs-xs); color:var(--text-4); margin-top:2px;}
+
+/* 消息 */
+.msg{display:flex; gap:var(--sp-3); align-items:flex-start; animation:rise var(--t-normal);}
+@keyframes rise{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+.avatar{
+  width:36px; height:36px; border-radius:12px; flex:none; display:grid; place-items:center;
+  font-size:var(--fs-xs); font-weight:600;
+}
+.msg-ai .avatar{background:var(--blue-600); color:#fff;}
+.msg-user{flex-direction:row-reverse;}
+.msg-user .avatar{background:var(--slate-200); color:var(--text-2);}
+.bubble{max-width:min(100%,660px); min-width:0;}
+.msg-user .bubble{
+  background:var(--blue-600); color:#fff; padding:12px var(--sp-4);
+  border-radius:var(--r-lg) var(--r-lg) 4px var(--r-lg); font-size:var(--fs-base); line-height:1.7;
+  box-shadow:var(--shadow-sm);
+}
+.msg-ai .bubble{
+  background:var(--surface-soft); border:1px solid var(--border);
+  border-radius:4px var(--r-lg) var(--r-lg) var(--r-lg); padding:var(--sp-4) var(--sp-5,20px);
+}
+.msg-meta{font-size:var(--fs-xs); color:var(--text-4); margin-bottom:6px;}
+.msg-user .msg-meta{text-align:right;}
+.reasoning{
+  background:var(--blue-50); border:1px solid var(--blue-100); border-radius:var(--r-md);
+  margin-bottom:var(--sp-3); overflow:hidden;
+}
+.reasoning summary{
+  list-style:none; cursor:pointer; display:flex; align-items:center; gap:var(--sp-2);
+  padding:10px var(--sp-3); font-size:var(--fs-sm); font-weight:600; color:var(--blue-800); min-height:44px;
+}
+.reasoning summary::-webkit-details-marker{display:none;}
+.reasoning summary .chev{margin-left:auto; transition:transform var(--t-fast); color:var(--blue-600);}
+.reasoning[open] summary .chev{transform:rotate(180deg);}
+.reasoning .reason-body{padding:0 var(--sp-3) var(--sp-3); font-size:var(--fs-sm); color:var(--text-2); line-height:1.8;}
+.reason-tag{font-size:var(--fs-xs); font-weight:500; color:var(--blue-700); background:var(--blue-100); padding:1px 8px; border-radius:var(--r-full);}
+.answer-title{display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-sm); font-weight:700; color:var(--text-1); margin-bottom:6px;}
+.answer-title::before{content:""; width:4px; height:14px; border-radius:2px; background:var(--blue-600);}
+.answer-body{font-size:var(--fs-base); color:var(--text-2); line-height:1.85;}
+.answer-body p+p{margin-top:var(--sp-2);}
+.answer-body ul{margin:var(--sp-2) 0 0; padding-left:1.2em;}
+.answer-body li{margin:4px 0;}
+.answer-body strong{color:var(--text-1);}
+.caret{display:inline-block; width:8px; height:18px; vertical-align:-3px; background:var(--blue-500); border-radius:2px; animation:blink 1s steps(1) infinite;}
+@keyframes blink{50%{opacity:0;}}
+.msg-actions{display:flex; gap:var(--sp-1); margin-top:var(--sp-3); padding-top:var(--sp-2); border-top:1px dashed var(--border);}
+.text-btn{
+  display:inline-flex; align-items:center; gap:6px; border:0; background:transparent;
+  color:var(--text-4); font-size:var(--fs-xs); padding:8px 10px; min-height:36px;
+  border-radius:var(--r-sm); cursor:pointer; transition:all var(--t-fast);
+}
+.text-btn:hover{background:var(--slate-100); color:var(--blue-700);}
+.thinking{display:inline-flex; align-items:center; gap:var(--sp-2); color:var(--text-4); font-size:var(--fs-sm);}
+.thinking i{width:6px;height:6px;border-radius:50%;background:var(--blue-400);animation:bob 1s infinite ease-in-out;}
+.thinking i:nth-child(2){animation-delay:.15s;} .thinking i:nth-child(3){animation-delay:.3s;}
+@keyframes bob{0%,100%{transform:translateY(0);opacity:.4;}50%{transform:translateY(-4px);opacity:1;}}
+
+/* 输入区 */
+.composer{border-top:1px solid var(--border); padding:var(--sp-4) var(--sp-6) var(--sp-3); background:#fff;}
+.composer-inner{max-width:800px; margin:0 auto;}
+.composer-tools{display:flex; gap:var(--sp-2); margin-bottom:var(--sp-2); align-items:center;}
+.composer-tools .spacer{flex:1;}
+.input-wrap{
+  display:flex; gap:var(--sp-3); align-items:flex-end;
+  border:1.5px solid var(--border-strong); border-radius:var(--r-lg);
+  padding:10px 10px 10px var(--sp-4); background:#fff; transition:all var(--t-fast);
+}
+.input-wrap:focus-within{border-color:var(--blue-600); box-shadow:var(--focus-ring);}
+.input-wrap textarea{
+  flex:1; border:0; outline:none; resize:none; font-family:inherit;
+  font-size:var(--fs-base); line-height:1.7; color:var(--text-1);
+  max-height:140px; min-height:28px; padding:2px 0; background:transparent;
+}
+.input-wrap textarea::placeholder{color:var(--slate-400);}
+.send-btn{
+  width:44px; height:44px; flex:none; border:0; border-radius:12px;
+  background:var(--blue-600); color:#fff; display:grid; place-items:center;
+  cursor:pointer; transition:all var(--t-fast);
+}
+.send-btn:hover:not(:disabled){background:var(--blue-700); transform:translateY(-1px); box-shadow:var(--shadow-md);}
+.send-btn:disabled{background:var(--slate-200); color:var(--slate-400); cursor:not-allowed;}
+.composer-meta{display:flex; justify-content:space-between; gap:var(--sp-3); margin-top:var(--sp-2); font-size:var(--fs-xs); color:var(--text-4);}
+kbd{font-family:var(--font-mono); font-size:11px; background:var(--slate-100); border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; padding:0 5px;}
+
+/* 右栏：上下文与参数 */
+.inspector{border-left:1px solid var(--border); background:var(--surface-soft); overflow-y:auto; padding:var(--sp-5,20px) var(--sp-4); display:flex; flex-direction:column; gap:var(--sp-4);}
+.panel{background:#fff; border:1px solid var(--border); border-radius:var(--r-lg); padding:var(--sp-4);}
+.panel-title{font-size:var(--fs-sm); font-weight:700; display:flex; align-items:center; gap:var(--sp-2); margin-bottom:var(--sp-3);}
+.panel-title svg{color:var(--blue-600);}
+.tip-list{margin:0; padding-left:1.1em; font-size:var(--fs-sm); color:var(--text-3);}
+.tip-list li{margin:6px 0;}
+.slider-row{margin-top:var(--sp-4);}
+.slider-label{display:flex; justify-content:space-between; font-size:var(--fs-sm); color:var(--text-2); margin-bottom:6px;}
+.slider-value{font-family:var(--font-mono); color:var(--blue-700); font-weight:600; font-size:var(--fs-sm);}
+input[type="range"]{width:100%; accent-color:var(--blue-600); height:28px; cursor:pointer;}
+.slider-hint{font-size:var(--fs-xs); color:var(--text-4);}
+.disclaimer{font-size:var(--fs-xs); color:var(--text-4); line-height:1.7; background:var(--slate-100); border-radius:var(--r-md); padding:var(--sp-3);}
+.disclaimer strong{color:var(--text-3);}
+
+/* ==========================================================================
+   规范页 / 组件页
+   ========================================================================== */
+.doc-page{max-width:1080px; margin:0 auto; padding:var(--sp-8) var(--sp-8) var(--sp-16);}
+.doc-page>h1{font-size:var(--fs-3xl); margin-bottom:var(--sp-2);}
+.doc-lead{color:var(--text-4); max-width:720px; margin-bottom:var(--sp-8);}
+.doc-section{margin-bottom:var(--sp-12);}
+.doc-section>h2{font-size:var(--fs-xl); margin-bottom:var(--sp-3); display:flex; align-items:center; gap:var(--sp-3);}
+.doc-section>h2 .num{font-family:var(--font-mono); font-size:var(--fs-sm); color:var(--blue-600); background:var(--blue-50); border-radius:8px; padding:2px 8px;}
+.doc-section p.desc{color:var(--text-3); font-size:var(--fs-sm); margin-bottom:var(--sp-4); max-width:760px;}
+.card-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:var(--sp-4);}
+.spec-card{background:#fff; border:1px solid var(--border); border-radius:var(--r-lg); padding:var(--sp-4); box-shadow:var(--shadow-sm);}
+.spec-card h3{font-size:var(--fs-base); margin-bottom:6px;}
+.spec-card p{font-size:var(--fs-sm); color:var(--text-3);}
+.swatch-row{display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:var(--sp-3);}
+.swatch{border-radius:var(--r-md); overflow:hidden; border:1px solid var(--border); background:#fff;}
+.swatch .chip{height:56px;}
+.swatch .meta{padding:8px 10px; font-size:11px; line-height:1.5;}
+.swatch .meta b{display:block; font-size:var(--fs-xs);}
+.swatch .meta code{font-family:var(--font-mono); color:var(--text-4);}
+table.spec-table{width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--border); border-radius:var(--r-md); overflow:hidden; font-size:var(--fs-sm);}
+table.spec-table th, table.spec-table td{padding:12px var(--sp-4); text-align:left; border-bottom:1px solid var(--border);}
+table.spec-table th{background:var(--surface-soft); font-weight:600; color:var(--text-2); font-size:var(--fs-xs);}
+table.spec-table tr:last-child td{border-bottom:0;}
+table.spec-table td code{font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--blue-700);}
+.pass{color:var(--success); font-weight:600;} .fail{color:var(--error); font-weight:600;}
+.type-row{display:flex; align-items:baseline; gap:var(--sp-4); padding:10px 0; border-bottom:1px dashed var(--border);}
+.type-row .t-meta{width:190px; flex:none; font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--text-4);}
+.checklist{margin:0; padding:0; list-style:none; display:grid; gap:var(--sp-2);}
+.checklist li{display:flex; gap:var(--sp-3); align-items:flex-start; background:#fff; border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp-3) var(--sp-4); font-size:var(--fs-sm); color:var(--text-2);}
+.checklist svg{color:var(--success); flex:none; margin-top:5px;}
+.component-block{background:#fff; border:1px solid var(--border); border-radius:var(--r-lg); margin-bottom:var(--sp-6); overflow:hidden;}
+.component-block .cb-head{padding:var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border); background:var(--surface-soft); display:flex; justify-content:space-between; align-items:center;}
+.component-block .cb-head h3{font-size:var(--fs-sm);}
+.component-block .cb-head code{font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--text-4);}
+.component-block .cb-body{padding:var(--sp-6); display:flex; flex-wrap:wrap; gap:var(--sp-4); align-items:center;}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-2);
+  font-size:var(--fs-sm); font-weight:500; border-radius:10px; border:1px solid transparent;
+  padding:10px 18px; min-height:44px; cursor:pointer; transition:all var(--t-fast); user-select:none;
+}
+.btn-primary{background:var(--blue-600); color:#fff;}
+.btn-primary:hover:not(:disabled){background:var(--blue-700); transform:translateY(-1px); box-shadow:var(--shadow-md);}
+.btn-secondary{background:#fff; color:var(--text-2); border-color:var(--border-strong);}
+.btn-secondary:hover:not(:disabled){border-color:var(--blue-400); color:var(--blue-700); background:var(--blue-50);}
+.btn-ghost{background:transparent; color:var(--text-3);}
+.btn-ghost:hover:not(:disabled){background:var(--slate-100); color:var(--text-1);}
+.btn-danger{background:#FEF2F2; color:var(--error); border-color:#FECACA;}
+.btn:disabled{opacity:.55; cursor:not-allowed;}
+.btn-sm{min-height:36px; padding:6px 14px; font-size:var(--fs-xs);}
+.demo-input{
+  padding:12px var(--sp-4); border:1.5px solid var(--border-strong); border-radius:10px;
+  font-size:var(--fs-sm); font-family:inherit; min-width:260px; color:var(--text-1);
+}
+.demo-input:focus{outline:none; border-color:var(--blue-600); box-shadow:var(--focus-ring);}
+.demo-input.is-error{border-color:var(--error);}
+.field-error{font-size:var(--fs-xs); color:var(--error); width:100%; margin-top:-8px;}
+.skeleton{width:100%; max-width:420px;}
+.skeleton i{display:block; height:14px; border-radius:6px; margin:10px 0; background:linear-gradient(90deg,var(--slate-100) 25%,var(--slate-200) 50%,var(--slate-100) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite;}
+.skeleton i:nth-child(1){width:60%;} .skeleton i:nth-child(3){width:80%;}
+@keyframes shimmer{from{background-position:200% 0;} to{background-position:-200% 0;}}
+.toast-demo{background:var(--slate-900); color:#fff; font-size:var(--fs-sm); padding:12px var(--sp-4); border-radius:12px; box-shadow:var(--shadow-md); display:inline-flex; gap:var(--sp-2); align-items:center;}
+.alert{display:flex; gap:var(--sp-3); padding:var(--sp-3) var(--sp-4); border-radius:var(--r-md); font-size:var(--fs-sm); width:100%;}
+.alert-info{background:var(--blue-50); color:var(--blue-800); border:1px solid var(--blue-100);}
+.alert-error{background:#FEF2F2; color:#991B1B; border:1px solid #FECACA;}
+.empty-demo{text-align:center; color:var(--text-4); font-size:var(--fs-sm); padding:var(--sp-6); width:100%; border:1px dashed var(--border-strong); border-radius:var(--r-md);}
+.switch{position:relative; width:44px; height:26px; display:inline-block;}
+.switch input{opacity:0; width:100%; height:100%; margin:0; cursor:pointer; position:absolute; z-index:2;}
+.switch i{position:absolute; inset:0; background:var(--slate-300); border-radius:99px; transition:background var(--t-fast);}
+.switch i::after{content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:var(--shadow-sm); transition:transform var(--t-fast);}
+.switch input:checked + i{background:var(--blue-600);}
+.switch input:checked + i::after{transform:translateX(18px);}
+.switch input:focus-visible + i{outline:2px solid var(--blue-600); outline-offset:2px;}
+
+#toast{position:fixed; left:50%; bottom:32px; transform:translateX(-50%) translateY(20px); opacity:0; pointer-events:none; transition:all var(--t-normal); z-index:99;}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+/* ==========================================================================
+   响应式
+   ========================================================================== */
+@media (max-width:1200px){
+  .app-shell{grid-template-columns:232px minmax(0,1fr);}
+  .inspector{display:none;}
+  .app-shell.inspector-open{grid-template-columns:232px minmax(0,1fr) 280px;}
+  .app-shell.inspector-open .inspector{display:flex;}
+}
+@media (max-width:860px){
+  .stage{padding:var(--sp-3);}
+  .doc-bar{padding:12px var(--sp-4); gap:var(--sp-3);}
+  .doc-page{padding:var(--sp-6) var(--sp-4) var(--sp-12);}
+  .app-shell{grid-template-columns:minmax(0,1fr); height:calc(100vh - 160px);}
+  .app-shell.inspector-open{grid-template-columns:minmax(0,1fr);}
+  .app-shell.inspector-open .inspector{position:absolute; inset:0; z-index:5; display:flex;}
+  .rail{display:none;}
+  .chat-scroll{padding:var(--sp-4);}
+  .composer{padding:var(--sp-3) var(--sp-4);}
+  .example-grid{grid-template-columns:1fr;}
+  .chat-header{padding:12px var(--sp-4);}
+  .chat-sub{display:none;}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important; transition:none !important; scroll-behavior:auto !important;}
+}
+</style>
+</head>
+<body>
+
+<header class="doc-bar">
+  <div class="doc-brand">
+    <div class="doc-logo" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6C19 16.4 12 21 12 21z"/><path d="M8 12h2l1.5-3 2 5L15 12h1.5"/></svg>
+    </div>
+    <div>
+      <div class="doc-title">医疗智能问诊助手 · UI 设计方案</div>
+      <div class="doc-sub">极简蓝调 · 设计系统 + 高保真原型 · WCAG AA</div>
+    </div>
+  </div>
+  <nav class="doc-tabs" role="tablist" aria-label="方案视图切换">
+    <button class="doc-tab" role="tab" id="tab-prototype" aria-selected="true" onclick="switchView('prototype')">界面原型</button>
+    <button class="doc-tab" role="tab" id="tab-system" aria-selected="false" onclick="switchView('system')">设计规范</button>
+    <button class="doc-tab" role="tab" id="tab-components" aria-selected="false" onclick="switchView('components')">组件库</button>
+  </nav>
+  <span class="doc-version">v1.0 · 2026-11-10 · 像素君</span>
+</header>
+
+<!-- ======================= 视图 1：界面原型 ======================= -->
+<section id="view-prototype" class="stage" role="tabpanel" aria-labelledby="tab-prototype">
+  <p class="stage-note"><span class="dot"></span>可交互原型：点击示例卡片或输入问题，体验「医学推理 → 专业解答」双段流式回答。<kbd>Enter</kbd> 发送 · <kbd>Shift + Enter</kbd> 换行。</p>
+  <div class="app-shell" id="appShell">
+
+    <aside class="rail" aria-label="会话导航">
+      <div class="rail-head">
+        <div class="rail-logo" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <div>
+          <div class="rail-name">医疗智能问诊助手</div>
+          <div class="rail-tag">Qwen2.5-7B · 医疗 LoRA</div>
+        </div>
+      </div>
+      <div class="rail-new">
+        <button class="btn btn-primary" style="width:100%;" onclick="clearChat()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          新建问诊
+        </button>
+      </div>
+      <div class="rail-section"><span>最近会话</span><span>3</span></div>
+      <div class="rail-list">
+        <button class="session" aria-current="true">
+          <div style="min-width:0;">
+            <div class="session-title">换季咳嗽、夜间加重</div>
+            <div class="session-time">刚刚 · 进行中</div>
+          </div>
+        </button>
+        <button class="session" aria-current="false">
+          <div style="min-width:0;">
+            <div class="session-title">熬夜后心慌手抖</div>
+            <div class="session-time">昨天</div>
+          </div>
+        </button>
+        <button class="session" aria-current="false">
+          <div style="min-width:0;">
+            <div class="session-title">幽门螺杆菌阳性咨询</div>
+            <div class="session-time">3 天前</div>
+          </div>
+        </button>
+      </div>
+      <div class="rail-foot">对话仅保存在本机 · 不上传隐私</div>
+    </aside>
+
+    <section class="chat-pane" aria-label="问诊对话">
+      <header class="chat-header">
+        <div style="min-width:0;">
+          <div class="chat-title">新的问诊</div>
+          <div class="chat-sub">已加载医疗微调模型 · 回答含医学推理过程</div>
+        </div>
+        <span class="badge badge-success" style="margin-left:auto;"><span class="pulse"></span>模型就绪</span>
+        <button class="icon-btn" onclick="toggleInspector()" aria-label="显示或隐藏参数面板" title="参数与就诊提示">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2.2" fill="#fff"/><circle cx="15" cy="12" r="2.2" fill="#fff"/><circle cx="8" cy="18" r="2.2" fill="#fff"/></svg>
+        </button>
+      </header>
+
+      <div class="chat-scroll" id="chatScroll">
+        <div class="chat-inner">
+          <div class="welcome" id="welcome">
+            <div class="welcome-icon" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6C19 16.4 12 21 12 21z"/></svg>
+            </div>
+            <h2>你好，我是你的健康咨询助手</h2>
+            <p>描述症状、持续时间与既往病史，我会先给出医学推理，再给出条理清晰的建议。</p>
+            <div class="example-grid" id="exampleGrid"></div>
+          </div>
+          <div id="messages" style="display:contents;"></div>
+        </div>
+      </div>
+
+      <footer class="composer">
+        <div class="composer-inner">
+          <div class="composer-tools">
+            <button class="text-btn" onclick="clearChat()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+              清空对话
+            </button>
+            <button class="text-btn" id="retryBtn" onclick="retryLast()" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+              重新回答
+            </button>
+            <span class="spacer"></span>
+            <span class="badge badge-blue">中西医结合</span>
+          </div>
+          <div class="input-wrap">
+            <textarea id="input" rows="1" placeholder="请描述你的症状、持续时间和用药情况…" aria-label="患者提问"></textarea>
+            <button class="send-btn" id="sendBtn" onclick="onSend()" aria-label="发送问题" disabled>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>
+            </button>
+          </div>
+          <div class="composer-meta">
+            <span><kbd>Enter</kbd> 发送 · <kbd>Shift + Enter</kbd> 换行</span>
+            <span>回答仅供健康参考，不能替代执业医师面诊</span>
+          </div>
+        </div>
+      </footer>
+    </section>
+
+    <aside class="inspector" id="inspector" aria-label="就诊提示与生成参数">
+      <div class="panel">
+        <div class="panel-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+          提问小技巧
+        </div>
+        <ul class="tip-list">
+          <li>说清<strong>部位 + 持续时间 + 诱因</strong>，推理更准确。</li>
+          <li>补充年龄、既往病史与正在服用的药物。</li>
+          <li>出现剧烈胸痛、呼吸困难等急症，请立即拨打 120。</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="panel-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg>
+          生成参数
+        </div>
+        <div class="slider-row" style="margin-top:0;">
+          <div class="slider-label"><span id="tempLabel">严谨度（temperature）</span><span class="slider-value" id="tempVal">0.7</span></div>
+          <input type="range" id="tempRange" min="0.1" max="1" step="0.1" value="0.7" aria-labelledby="tempLabel">
+          <div class="slider-hint">越低越严谨保守，越高越发散。医疗场景建议 0.3–0.7。</div>
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span id="tokenLabel">回答长度（max tokens）</span><span class="slider-value" id="tokenVal">1024</span></div>
+          <input type="range" id="tokenRange" min="256" max="2048" step="128" value="1024" aria-labelledby="tokenLabel">
+          <div class="slider-hint">复杂症状建议 1024 以上，保证推理完整。</div>
+        </div>
+      </div>
+      <div class="disclaimer">
+        <strong>医疗免责声明</strong><br>
+        本助手由 AI 模型生成内容，仅供健康参考，不构成诊断、处方或治疗建议。如有不适，请及时前往正规医疗机构就诊。
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ======================= 视图 2：设计规范 ======================= -->
+<section id="view-system" class="doc-page" role="tabpanel" aria-labelledby="tab-system" hidden>
+  <h1>设计系统规范</h1>
+  <p class="doc-lead">先统一语言，再画界面。以下 Token 是原型与后续开发的唯一事实来源，任何新组件都必须从这里取值，避免视觉碎片化。</p>
+
+  <div class="doc-section">
+    <h2><span class="num">01</span>设计原则：面向「焦虑中的非专业用户」</h2>
+    <div class="card-grid">
+      <div class="spec-card"><h3>安心优先</h3><p>大字号（正文 16px）、1.85 行高、低饱和蓝与大量留白，降低医疗场景的天然紧张感；免责声明显眼但不恐吓。</p></div>
+      <div class="spec-card"><h3>推理透明</h3><p>「医学推理」与「专业解答」双段分离：推理默认可折叠，结论永远直接可读，兼顾信任感与阅读效率。</p></div>
+      <div class="spec-card"><h3>零学习成本</h3><p>沿用主流对话产品肌肉记忆：历史会话在左、输入框固定底部、Enter 发送、示例一键提问。</p></div>
+      <div class="spec-card"><h3>可访问性内建</h3><p>WCAG AA 起步：正文对比度 ≥ 4.5:1、全键盘可达、44px 触控目标、尊重减少动效偏好。</p></div>
+    </div>
+  </div>
+
+  <div class="doc-section">
+    <h2><span class="num">02</span>色彩系统 · 极简蓝调</h2>
+    <p class="desc">单一主色 + 中性灰承载 90% 界面；语义色只用于状态，不做装饰。主色 #2563EB 在白底上对比度 5.17:1，满足 AA。</p>
+    <div class="swatch-row" id="swatchPrimary"></div>
+    <div style="height:16px;"></div>
+    <div class="swatch-row" id="swatchNeutral"></div>
+    <div style="height:20px;"></div>
+    <table class="spec-table">
+      <thead><tr><th>用途</th><th>前景 / 背景</th><th>对比度</th><th>判定</th></tr></thead>
+      <tbody>
+        <tr><td>正文</td><td><code>#1E293B</code> / <code>#FFFFFF</code></td><td>14.7:1</td><td class="pass">AA / AAA 通过</td></tr>
+        <tr><td>次要文字</td><td><code>#475569</code> / <code>#FFFFFF</code></td><td>7.5:1</td><td class="pass">AA / AAA 通过</td></tr>
+        <tr><td>辅助说明</td><td><code>#64748B</code> / <code>#FFFFFF</code></td><td>4.8:1</td><td class="pass">AA 通过</td></tr>
+        <tr><td>主按钮文字</td><td><code>#FFFFFF</code> / <code>#2563EB</code></td><td>5.17:1</td><td class="pass">AA 通过</td></tr>
+        <tr><td>占位符 / 禁用</td><td><code>#94A3B8</code> / <code>#FFFFFF</code></td><td>2.9:1</td><td class="fail">仅装饰，禁止正文</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="doc-section">
+    <h2><span class="num">03</span>字体与排版</h2>
+    <p class="desc">中文优先系统字体（苹方 / 微软雅黑），零外部字体请求，保证自包含与加载性能。字阶 1.25 倍递增，标题字重 700，正文 400。</p>
+    <div class="type-row"><span class="t-meta">Display / 36px / 700</span><span style="font-size:var(--fs-4xl);font-weight:700;line-height:1.3;">医疗智能问诊</span></div>
+    <div class="type-row"><span class="t-meta">H1 / 30px / 700</span><span style="font-size:var(--fs-3xl);font-weight:700;line-height:1.3;">医疗智能问诊</span></div>
+    <div class="type-row"><span class="t-meta">H2 / 24px / 700</span><span style="font-size:var(--fs-2xl);font-weight:700;line-height:1.35;">你好，我是健康咨询助手</span></div>
+    <div class="type-row"><span class="t-meta">Title / 18px / 600</span><span style="font-size:var(--fs-lg);font-weight:600;">专业解答</span></div>
+    <div class="type-row"><span class="t-meta">Body / 16px / 400 / 1.85</span><span style="font-size:var(--fs-base);line-height:1.85;">换季咳嗽多与气道敏感相关，建议观察痰液性状与伴随症状。</span></div>
+    <div class="type-row"><span class="t-meta">Small / 14px / 400</span><span style="font-size:var(--fs-sm);">说清部位、持续时间与诱因，推理更准确。</span></div>
+    <div class="type-row" style="border-bottom:0;"><span class="t-meta">Caption / 12px / 400</span><span style="font-size:var(--fs-xs);color:var(--text-4);">回答仅供健康参考，不能替代执业医师面诊</span></div>
+  </div>
+
+  <div class="doc-section">
+    <h2><span class="num">04</span>间距 · 圆角 · 阴影 · 动效</h2>
+    <table class="spec-table">
+      <thead><tr><th>Token 组</th><th>取值</th><th>使用约定</th></tr></thead>
+      <tbody>
+        <tr><td>间距（4px 基频）</td><td><code>4 / 8 / 12 / 16 / 24 / 32 / 48 / 64</code></td><td>组件内聚用 4–16，区块分隔用 24–32，页面节奏用 48–64</td></tr>
+        <tr><td>圆角</td><td><code>8 / 12 / 16 / 999</code></td><td>按钮 10、卡片 16、气泡 16（带 4px 指向角）、徽标全圆角</td></tr>
+        <tr><td>阴影</td><td><code>sm / md / lg</code></td><td>默认卡片 sm；悬浮反馈 md；仅最外层容器用 lg</td></tr>
+        <tr><td>动效</td><td><code>150ms / 240ms ease</code></td><td>只做透明度与位移，不用弹性过冲；流式打字无延迟动画</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="doc-section">
+    <h2><span class="num">05</span>布局与响应式</h2>
+    <table class="spec-table">
+      <thead><tr><th>断点</th><th>布局</th><th>行为</th></tr></thead>
+      <tbody>
+        <tr><td><code>≥ 1200px</code> 桌面</td><td>264px 会话栏 + 自适应对话 + 296px 上下文栏</td><td>对话内容最大宽 800px 居中，保证行长 35–45 字</td></tr>
+        <tr><td><code>860–1199px</code> 小屏笔电</td><td>232px 会话栏 + 对话</td><td>参数栏默认收起，通过顶栏滑杆图标以第三栏展开</td></tr>
+        <tr><td><code>&lt; 860px</code> 平板 / 手机</td><td>单栏对话</td><td>会话栏收进新建流程；参数栏改为全屏浮层；示例卡片单列</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="doc-section">
+    <h2><span class="num">06</span>可访问性清单（WCAG AA）</h2>
+    <ul class="checklist">
+      <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>正文与背景对比度 ≥ 4.5:1，占位符与禁用色不承载关键信息。</li>
+      <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>全部功能可键盘完成：Tab 顺序符合视觉顺序，焦点环 2px 主色 + 2px 偏移。</li>
+      <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>可点击目标最小 44×44px；图标按钮带 aria-label；滑杆绑定 label。</li>
+      <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>推理折叠使用原生 details/summary，屏幕阅读器可直接朗读展开状态。</li>
+      <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>尊重 prefers-reduced-motion，关闭全部非必要动画；流式区域建议 aria-live="polite"。</li>
+      <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>正文字体可随浏览器放大至 200%，布局使用相对单位不截断。</li>
+    </ul>
+  </div>
+
+  <div class="doc-section">
+    <h2><span class="num">07</span>落地映射：从 Gradio 到新界面</h2>
+    <table class="spec-table">
+      <thead><tr><th>现有 Gradio 元素</th><th>新方案</th><th>收益</th></tr></thead>
+      <tbody>
+        <tr><td>单一 Chatbot 气泡</td><td>推理卡（可折叠）+ 解答正文 + 消息操作栏</td><td>CoT 结构可读、可复制、可重答</td></tr>
+        <tr><td>Accordion 生成参数</td><td>右侧常驻参数面板（移动端浮层）</td><td>调参即时可见，不打断对话流</td></tr>
+        <tr><td>Examples 列表</td><td>欢迎态双列示例卡片</td><td>首屏引导更强，降低空输入焦虑</td></tr>
+        <tr><td>顶部 Markdown 标题</td><td>会话栏品牌区 + 对话顶栏状态徽标</td><td>模型状态可感知，品牌更克制</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================= 视图 3：组件库 ======================= -->
+<section id="view-components" class="doc-page" role="tabpanel" aria-labelledby="tab-components" hidden>
+  <h1>组件库</h1>
+  <p class="doc-lead">每个组件包含默认、悬浮、焦点、禁用、加载、错误与空态。以下均为真实可交互元素，可直接 Tab 体验焦点顺序。</p>
+
+  <div class="component-block">
+    <div class="cb-head"><h3>按钮 Button</h3><code>primary / secondary / ghost / danger · 44px</code></div>
+    <div class="cb-body">
+      <button class="btn btn-primary">主要操作</button>
+      <button class="btn btn-secondary">次要操作</button>
+      <button class="btn btn-ghost">幽灵按钮</button>
+      <button class="btn btn-danger">危险操作</button>
+      <button class="btn btn-primary" disabled>禁用状态</button>
+      <button class="btn btn-secondary btn-sm">小尺寸 36px</button>
+    </div>
+  </div>
+
+  <div class="component-block">
+    <div class="cb-head"><h3>表单 Form</h3><code>focus ring · error · switch · range</code></div>
+    <div class="cb-body">
+      <input class="demo-input" placeholder="默认输入框：请输入症状" aria-label="默认输入框示例">
+      <input class="demo-input is-error" value="未填写持续时间" aria-label="错误输入框示例" aria-invalid="true">
+      <span class="field-error">错误提示：请补充症状持续天数，便于准确推理。</span>
+      <label class="switch" aria-label="开关示例"><input type="checkbox" checked><i></i></label>
+      <span style="font-size:var(--fs-sm);color:var(--text-3);">显示医学推理</span>
+      <input type="range" min="0" max="100" value="60" aria-label="滑杆示例" style="max-width:240px;">
+    </div>
+  </div>
+
+  <div class="component-block">
+    <div class="cb-head"><h3>反馈 Feedback</h3><code>badge / alert / toast / skeleton</code></div>
+    <div class="cb-body">
+      <span class="badge badge-success"><span class="pulse"></span>模型就绪</span>
+      <span class="badge badge-blue">中西医结合</span>
+      <span class="badge badge-gray">历史会话</span>
+      <div class="alert alert-info">提示：补充年龄与既往病史，可显著提升推理质量。</div>
+      <div class="alert alert-error">错误：模型加载失败，请检查权重路径后重试。</div>
+      <div class="toast-demo">已复制回答到剪贴板</div>
+      <div class="skeleton" aria-label="加载骨架示例"><i></i><i></i><i></i></div>
+      <div class="empty-demo">空态：暂无历史会话，点击「新建问诊」开始第一次咨询。</div>
+    </div>
+  </div>
+
+  <div class="component-block">
+    <div class="cb-head"><h3>消息 Message</h3><code>user / ai · 双段结构</code></div>
+    <div class="cb-body" style="flex-direction:column; align-items:stretch; gap:var(--sp-6); background:var(--surface-soft);">
+      <div class="msg msg-user" style="align-self:flex-end;">
+        <div class="avatar" aria-hidden="true">我</div>
+        <div class="bubble">最近一到换季就咳嗽，晚上加重，有少量白痰。</div>
+      </div>
+      <div class="msg msg-ai">
+        <div class="avatar" aria-hidden="true">医</div>
+        <div class="bubble">
+          <details class="reasoning">
+            <summary>医学推理<span class="reason-tag">可折叠</span><span class="chev">▾</span></summary>
+            <div class="reason-body">从「季节性 + 夜间加重 + 白痰」三个特征出发，优先考虑气道高反应与寒邪犯肺两类方向，需要进一步区分过敏与感染因素。</div>
+          </details>
+          <div class="answer-title">专业解答</div>
+          <div class="answer-body">更倾向气道敏感而非细菌感染。建议注意夜间保暖、避免冷空气直吹，若持续超过两周或出现黄绿痰、发热，请及时就医。</div>
+          <div class="msg-actions">
+            <button class="text-btn">复制</button><button class="text-btn">重新回答</button><button class="text-btn">有帮助</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="toast" class="toast-demo" role="status" aria-live="polite">已复制回答到剪贴板</div>
+
+<script>
+/* ============================ 视图切换 ============================ */
+function switchView(name){
+  ["prototype","system","components"].forEach(function(v){
+    document.getElementById("view-" + v).hidden = (v !== name);
+    document.getElementById("tab-" + v).setAttribute("aria-selected", v === name ? "true" : "false");
+  });
+  window.scrollTo({top:0});
+}
+
+/* ============================ 色板渲染 ============================ */
+var PALETTES = {
+  swatchPrimary:[
+    ["Blue 50","#EFF6FF"],["Blue 100","#DBEAFE"],["Blue 200","#BFDBFE"],["Blue 300","#93C5FD"],
+    ["Blue 400","#60A5FA"],["Blue 500","#3B82F6"],["Blue 600 · 主色","#2563EB"],["Blue 700 · 悬浮","#1D4ED8"],
+    ["Blue 800","#1E40AF"],["Blue 900","#1E3A8A"]
+  ],
+  swatchNeutral:[
+    ["页面底色","#F6F8FB"],["Slate 50","#F8FAFC"],["Slate 100","#F1F5F9"],["Slate 200 · 边框","#E2E8F0"],
+    ["Slate 400 · 占位","#94A3B8"],["Slate 500 · 辅助","#64748B"],["Slate 600 · 次要","#475569"],
+    ["Slate 700","#334155"],["Slate 800 · 正文","#1E293B"],["Slate 900 · 标题","#0F172A"]
+  ]
+};
+Object.keys(PALETTES).forEach(function(id){
+  document.getElementById(id).innerHTML = PALETTES[id].map(function(item){
+    return '<div class="swatch"><div class="chip" style="background:' + item[1] + ';"></div>' +
+      '<div class="meta"><b>' + item[0] + '</b><code>' + item[1] + '</code></div></div>';
+  }).join("");
+});
+
+/* ============================ 示例问题与模拟回答 ============================ */
+var EXAMPLES = [
+  {q:"最近一到换季就咳嗽，晚上加重，有少量白痰，这是什么原因？", tag:"呼吸 · 季节性咳嗽",
+   reason:"1. 关键特征：换季诱发、夜间加重、少量白痰，提示气道对环境变化敏感。\n2. 夜间平躺时气道分泌物刺激与迷走神经兴奋，会加重咳嗽反射。\n3. 白痰而非黄绿痰，暂不支持细菌性感染，更倾向气道高反应或寒邪犯肺。",
+   answer:"**更可能是气道高反应性咳嗽（中医多属风寒犯肺、肺气不宣）。**\n建议先从生活调理入手：\n- 夜间注意颈背保暖，避免冷空气与空调直吹。\n- 睡前温水润喉，保持卧室湿度在 50% 左右。\n- 减少辛辣、生冷与烟酒刺激。\n若咳嗽持续超过两周，或出现黄绿痰、发热、气促，请及时到呼吸内科就诊，必要时做肺功能与过敏原检查。"},
+  {q:"经常熬夜后心慌、手抖，需要注意什么？", tag:"心血管 · 生活方式",
+   reason:"1. 熬夜导致交感神经过度兴奋，心率加快、心肌耗氧增加，出现心慌。\n2. 睡眠不足与咖啡因叠加会引起手部细颤，属于功能性改变的常见表现。\n3. 需警惕甲亢、心律失常等器质性问题，尤其是症状在休息后仍不缓解时。",
+   answer:"**多数情况与睡眠不足引起的交感神经兴奋有关，但需排除器质性疾病。**\n- 优先补觉：保证连续 7–8 小时睡眠，避免报复性熬夜。\n- 减少咖啡、浓茶与能量饮料，尤其在下午之后。\n- 心慌发作时静坐深呼吸，记录发作时间与持续时长。\n若伴随明显消瘦、怕热多汗，或心慌频繁发作、持续数分钟不缓解，建议检查甲状腺功能和 24 小时动态心电图。"},
+  {q:"1岁孩子夏季头皮长小结节、溃破流脓长期不愈，中医怎么看待这种病？", tag:"儿科 · 皮肤",
+   reason:"1. 夏季暑湿当令，幼儿肌肤娇嫩，暑湿蕴结头皮易成疖肿。\n2. 溃破流脓且长期不愈，提示湿热未清、正气不足，托毒无力。\n3. 婴幼儿感染扩散风险高于成人，需优先排除深部感染。",
+   answer:"**中医多属「暑疖」「湿热蕴结」，久不愈则兼正气亏虚。**\n- 保持头皮清洁干爽，避免抓挠与挤压患处。\n- 饮食清淡，母乳喂养者母亲同调，少食甜腻。\n- 中医治则以清暑利湿、解毒托脓为主，需由儿科中医师面诊处方。\n婴幼儿头皮脓肿不建议自行用药。若伴发热、精神差或范围扩大，请立即就医，必要时需切开引流与抗感染治疗。"},
+  {q:"体检发现幽门螺杆菌阳性，需要治疗吗？", tag:"消化 · 体检解读",
+   reason:"1. 幽门螺杆菌与慢性胃炎、消化性溃疡及胃癌风险相关，属于明确致病菌。\n2. 是否根除需结合症状、家族史与胃镜结果综合判断。\n3. 当前共识倾向于确诊后根除治疗，除非存在禁忌证。",
+   answer:"**一般建议根除治疗，但需由消化科医生评估后开方案。**\n- 常用四联疗法（两种抗生素 + 质子泵抑制剂 + 铋剂），疗程 10–14 天。\n- 治疗期间严格按疗程服药，避免漏服导致耐药。\n- 停药 4 周后复查呼气试验，确认是否根除。\n家庭成员建议同步筛查，用餐使用公筷，降低交叉感染风险。孕妇、儿童与有药物过敏史者需个体化评估。"}
+];
+var GENERIC = {
+  reason:"1. 已收到症状描述，正在结合持续时间、诱因与伴随症状进行结构化分析。\n2. 将从常见原因入手，区分功能性问题与需要就医的警示信号。\n3. 医疗结论需要面诊与检查支撑，以下内容仅作健康参考。",
+  answer:"**感谢补充描述。基于现有信息，给出一般性建议：**\n- 记录症状出现的时间、频率与诱因，便于医生判断。\n- 保持规律作息与清淡饮食，避免自行叠加用药。\n- 若出现持续加重、发热、剧烈疼痛或意识改变，请立即就医。\n你可以继续补充年龄、既往病史和正在使用的药物，我会据此细化分析。"
+};
+
+/* ============================ 原型状态 ============================ */
+var input = document.getElementById("input");
+var sendBtn = document.getElementById("sendBtn");
+var retryBtn = document.getElementById("retryBtn");
+var messagesEl = document.getElementById("messages");
+var welcomeEl = document.getElementById("welcome");
+var scrollEl = document.getElementById("chatScroll");
+var isGenerating = false;
+var lastQuestion = "";
+
+function buildExamples(){
+  var grid = document.getElementById("exampleGrid");
+  EXAMPLES.forEach(function(ex){
+    var btn = document.createElement("button");
+    btn.className = "example-card";
+    btn.innerHTML = '<span class="ex-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.6 8.6 0 0 1-3.7-.8L3 21l1.9-5.2a8.3 8.3 0 0 1-.9-3.8A8.4 8.4 0 0 1 12.5 3.6 8.4 8.4 0 0 1 21 11.5z"/></svg></span>' +
+      '<span><span class="ex-title">' + ex.q + '</span><span class="ex-hint" style="display:block;">' + ex.tag + ' · 点击提问</span></span>';
+    btn.addEventListener("click", function(){ sendQuestion(ex.q); });
+    grid.appendChild(btn);
+  });
+}
+
+function autoGrow(){
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 140) + "px";
+  sendBtn.disabled = !input.value.trim() || isGenerating;
+}
+
+function scrollBottom(){ scrollEl.scrollTop = scrollEl.scrollHeight; }
+
+function nowTime(){
+  var d = new Date();
+  return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+}
+
+function appendUser(text){
+  var wrap = document.createElement("div");
+  wrap.className = "msg msg-user";
+  var avatar = document.createElement("div");
+  avatar.className = "avatar"; avatar.setAttribute("aria-hidden","true"); avatar.textContent = "我";
+  var bubble = document.createElement("div"); bubble.className = "bubble";
+  var meta = document.createElement("div"); meta.className = "msg-meta";
+  meta.textContent = "我 · " + nowTime(); meta.style.color = "rgba(255,255,255,.75)";
+  var body = document.createElement("div"); body.textContent = text;
+  bubble.appendChild(meta); bubble.appendChild(body);
+  wrap.appendChild(avatar); wrap.appendChild(bubble);
+  messagesEl.appendChild(wrap);
+  scrollBottom();
+}
+
+function formatAnswer(text){
+  var lines = text.split("\n");
+  var html = "", inList = false;
+  lines.forEach(function(line){
+    line = line.trim();
+    if(!line){ return; }
+    line = line.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+    if(line.indexOf("- ") === 0){
+      if(!inList){ html += "<ul>"; inList = true; }
+      html += "<li>" + line.slice(2) + "</li>";
+    }else{
+      if(inList){ html += "</ul>"; inList = false; }
+      html += "<p>" + line + "</p>";
+    }
+  });
+  if(inList){ html += "</ul>"; }
+  return html;
+}
+
+function buildAiShell(){
+  var wrap = document.createElement("div");
+  wrap.className = "msg msg-ai";
+  wrap.innerHTML =
+    '<div class="avatar" aria-hidden="true">医</div>' +
+    '<div class="bubble">' +
+      '<div class="msg-meta">医疗助手 · 医疗 LoRA 模型</div>' +
+      '<div class="thinking" aria-live="polite"><i></i><i></i><i></i><span>正在进行医学推理…</span></div>' +
+    '</div>';
+  messagesEl.appendChild(wrap);
+  scrollBottom();
+  return wrap;
+}
+
+/* 打字机：逐字输出，支持取消标记 */
+function typeInto(el, text, speed){
+  return new Promise(function(resolve){
+    var i = 0;
+    var timer = setInterval(function(){
+      i += 2;
+      el.textContent = text.slice(0, i);
+      scrollBottom();
+      if(i >= text.length){
+        clearInterval(timer);
+        el.textContent = text;
+        resolve();
+      }
+    }, speed);
+  });
+}
+
+function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+async function runAnswer(shell, question){
+  var data = null;
+  for(var k = 0; k < EXAMPLES.length; k++){
+    if(EXAMPLES[k].q === question){ data = EXAMPLES[k]; break; }
+  }
+  if(!data){ data = GENERIC; }
+  var bubble = shell.querySelector(".bubble");
+  await wait(650);
+  bubble.innerHTML =
+    '<div class="msg-meta">医疗助手 · 医疗 LoRA 模型</div>' +
+    '<details class="reasoning" open>' +
+      '<summary>医学推理<span class="reason-tag">CoT</span>' +
+      '<span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></span></summary>' +
+      '<div class="reason-body"></div>' +
+    '</details>' +
+    '<div class="answer-title">专业解答</div>' +
+    '<div class="answer-body"><span class="stream-text"></span><span class="caret"></span></div>';
+  await typeInto(bubble.querySelector(".reason-body"), data.reason, 16);
+  var streamEl = bubble.querySelector(".stream-text");
+  await typeInto(streamEl, data.answer, 14);
+  bubble.querySelector(".caret").remove();
+  bubble.querySelector(".answer-body").innerHTML = formatAnswer(data.answer);
+  var actions = document.createElement("div");
+  actions.className = "msg-actions";
+  actions.innerHTML =
+    '<button class="text-btn" data-act="copy">复制</button>' +
+    '<button class="text-btn" data-act="retry">重新回答</button>' +
+    '<button class="text-btn" data-act="like">有帮助</button>';
+  actions.addEventListener("click", function(ev){
+    var act = ev.target.getAttribute("data-act");
+    if(act === "copy"){
+      var text = data.reason + "\n\n" + data.answer;
+      if(navigator.clipboard){ navigator.clipboard.writeText(text).catch(function(){}); }
+      showToast("已复制回答到剪贴板");
+    }else if(act === "retry"){
+      retryLast();
+    }else if(act === "like"){
+      showToast("感谢反馈，已记录「有帮助」");
+    }
+  });
+  bubble.appendChild(actions);
+  scrollBottom();
+}
+
+async function sendQuestion(text){
+  text = (text || "").trim();
+  if(!text || isGenerating){ return; }
+  isGenerating = true;
+  lastQuestion = text;
+  sendBtn.disabled = true;
+  retryBtn.disabled = true;
+  input.value = ""; autoGrow();
+  welcomeEl.hidden = true;
+  appendUser(text);
+  var shell = buildAiShell();
+  await runAnswer(shell, text);
+  isGenerating = false;
+  retryBtn.disabled = false;
+  autoGrow();
+  input.focus();
+}
+
+function onSend(){ sendQuestion(input.value); }
+
+function clearChat(){
+  if(isGenerating){ return; }
+  messagesEl.innerHTML = "";
+  welcomeEl.hidden = false;
+  lastQuestion = "";
+  retryBtn.disabled = true;
+  input.value = ""; autoGrow(); input.focus();
+  showToast("已开始新的问诊");
+}
+
+function retryLast(){
+  if(isGenerating || !lastQuestion){ return; }
+  var msgs = messagesEl.querySelectorAll(".msg");
+  if(msgs.length){ messagesEl.removeChild(msgs[msgs.length - 1]); }
+  isGenerating = true;
+  retryBtn.disabled = true;
+  var shell = buildAiShell();
+  runAnswer(shell, lastQuestion).then(function(){
+    isGenerating = false;
+    retryBtn.disabled = false;
+  });
+}
+
+function toggleInspector(){
+  document.getElementById("appShell").classList.toggle("inspector-open");
+}
+
+var toastTimer = null;
+function showToast(text){
+  var t = document.getElementById("toast");
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+}
+
+/* ============================ 事件绑定 ============================ */
+input.addEventListener("input", autoGrow);
+input.addEventListener("keydown", function(ev){
+  if(ev.key === "Enter" && !ev.shiftKey){
+    ev.preventDefault();
+    onSend();
+  }
+});
+document.getElementById("tempRange").addEventListener("input", function(){
+  document.getElementById("tempVal").textContent = Number(this.value).toFixed(1);
+});
+document.getElementById("tokenRange").addEventListener("input", function(){
+  document.getElementById("tokenVal").textContent = this.value;
+});
+
+buildExamples();
+autoGrow();
+</script>
+</body>
+</html>

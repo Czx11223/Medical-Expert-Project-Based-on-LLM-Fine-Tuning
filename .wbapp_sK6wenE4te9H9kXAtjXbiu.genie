@@ -1,0 +1,5 @@
+appId: wbapp_sK6wenE4te9H9kXAtjXbiu
+name: 医疗问诊助手
+localDir: D:\peixunwenjian\2026.9.12\medical_chat_web
+appType: web
+entryHtml: index.html

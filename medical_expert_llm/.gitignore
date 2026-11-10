@@ -1,0 +1,33 @@
+# Python 运行产物
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# 模型与训练输出（体积大，不入库）
+outputs/
+models/
+checkpoints/
+
+# 预处理后的中间数据（原始数据 data/medical_cot_zh.jsonl 保留）
+data/processed/
+
+# HuggingFace / ModelScope 缓存
+.cache/
+hf_cache/
+modelscope_cache/
+
+# 日志与临时文件
+*.log
+runs/
+wandb/
+.ipynb_checkpoints/
+Thumbs.db
+.DS_Store

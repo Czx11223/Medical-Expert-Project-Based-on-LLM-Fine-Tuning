@@ -1,0 +1,71 @@
+# ============================================================
+# 基于大模型微调的医疗专家 - 训练总配置文件
+# 被 train/train_lora.py 读取；同名命令行参数可覆盖本文件配置
+# 所有相对路径均以项目根目录 medical_expert_llm/ 为基准
+# ============================================================
+
+# ---------------- 模型 ----------------
+# 基座模型：Qwen2.5-7B-Instruct（通义千问 7B 指令版）
+# 若已用 ModelScope/镜像下载到本地，可改为本地路径，如 "models/qwen2.5-7b-instruct"
+base_model: "models/qwen2.5-7b-instruct"
+
+# 4bit 量化开关（QLoRA 核心，显存不足 16GB 务必保持 true）
+load_in_4bit: true
+# 量化精度类型：nf4 (NormalFloat4) 为 QLoRA 论文推荐，精度优于 fp4
+bnb_4bit_quant_type: "nf4"
+# 4bit 反量化后的计算精度：bf16 需 RTX30 系及以上，脚本会自动检测降级 fp16
+bnb_4bit_compute_dtype: "bfloat16"
+# 双重量化：进一步压缩量化常量，再省约 0.4GB 显存
+bnb_4bit_use_double_quant: true
+
+# ---------------- 数据 ----------------
+# 预处理输出目录（由 data/preprocess.py 生成 train.json / val.json）
+data_dir: "data/processed"
+# 单条样本最大 token 长度（统计：本数据集最长约 1400 token，1536 可 100% 覆盖）
+max_length: 1536
+
+# ---------------- LoRA 参数 ----------------
+# 秩 r：LoRA 低秩矩阵维度，越大表达能力越强、显存占用越高（8/16/32 常用）
+lora_r: 16
+# 缩放系数 alpha：等效学习率缩放，经验值取 r 的 2 倍
+lora_alpha: 32
+# dropout：防止 LoRA 分支过拟合
+lora_dropout: 0.05
+# 挂载 LoRA 的注意力/前馈投影层（Qwen 全部线性层）
+lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj",
+                      "gate_proj", "up_proj", "down_proj"]
+
+# ---------------- 训练超参 ----------------
+# 【正式训练前必读】本文件为通用推荐配置（≥12GB 显存直接用）。
+# 8GB 显卡（如 RTX 4060 Laptop，已实测跑通）请用命令行覆盖：
+#   python train/train_lora.py --per_device_train_batch_size 1 ^
+#       --gradient_accumulation_steps 16 --max_length 1024
+# 全量 19134 条 x 1 epoch 在 8GB 卡上约 25~30 小时；时间紧张可用
+#   --max_train_samples 8000  先训练子集（约 10~12 小时，可过夜跑）
+num_train_epochs: 1            # 训练轮数（1 轮即可掌握 CoT 格式与医疗风格，时间紧张首选）
+learning_rate: 0.0002          # LoRA 学习率 2e-4（比全参微调大 1~2 个数量级）
+per_device_train_batch_size: 2 # 单卡 batch size（8GB 显卡务必用命令行改为 1）
+gradient_accumulation_steps: 8 # 梯度累积，等效 batch = 2 x 8 = 16
+warmup_ratio: 0.03             # 学习率预热比例
+weight_decay: 0.01             # 权重衰减
+max_grad_norm: 0.3             # 梯度裁剪阈值
+lr_scheduler_type: "cosine"    # 余弦退火调度器
+
+# ---------------- 日志 / 保存 / 评估 ----------------
+logging_steps: 10              # 每 10 步打印一次训练日志
+# 注意：load_best_model_at_end 按 eval_loss 挑最优 checkpoint，
+# 要求 save_steps 与 eval_steps 对齐，两者必须同改
+eval_steps: 80                 # 每 80 步在验证集上评估 eval_loss
+save_steps: 80                 # 每 80 步保存 checkpoint（中断后可从 checkpoint 恢复）
+save_total_limit: 3            # 最多保留 3 个 checkpoint，节省磁盘
+early_stopping_patience: 3     # 连续 3 次评估 loss 不下降则提前停止
+use_early_stopping: true       # 关闭可跑满全部 epoch
+
+# ---------------- 输出与随机种子 ----------------
+output_dir: "outputs/lora_medical_qwen"  # 训练输出根目录
+seed: 42                       # 固定随机种子，保证实验可复现
+
+# ---------------- 快速调试（正式训练请保持 null） ----------------
+# 仅取前 N 条样本跑通流程，如 200；null 表示使用全量数据
+max_train_samples: null
+max_eval_samples: null
